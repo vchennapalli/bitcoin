@@ -1,0 +1,2 @@
+IO.inspect KeyGenerator.everything()
+
