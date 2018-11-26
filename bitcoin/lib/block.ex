@@ -2,14 +2,14 @@ defmodule Block do
 
 #Block structure
     def createBlock() do
-        block = %{ blockHash: nil,
-        version: 1, 
-        previousblock: nil , 
-        merkelroot: nil ,
-        time: DateTime.utc_now(), 
-        bits: nil, 
-        nonce: 0,
-        transactions: []
+        block = %{ :blockHash: nil,
+        :version: 1, 
+        :previousblock: nil , 
+        :merkelroot: nil ,
+        :time: DateTime.utc_now(), 
+        :bits: nil, 
+        :nonce: 0,
+        :transactions: []
         }
         block
 
@@ -56,10 +56,10 @@ defmodule Block do
         end
     end
 
-    def test() do
-        list = [1,2,3]
-        createMTree(list)
-    end
+    # def test() do
+    #     list = [1,2,3]
+    #     createMTree(list)
+    # end
 
 
 end
