@@ -1,30 +1,33 @@
 defmodule Block do
 
-#Block structure
-    def createBlock() do
+    @doc """
+    creates block from the given transactions
+    """
+    def create_block() do
         block = %{ :blockHash => nil,
-        :version => 1, 
-        :previousblock => "0000000000000000000000000000000000000000000000000000000000000000", 
+        :version => 1,
+        :previousblock => "0000000000000000000000000000000000000000000000000000000000000000",
         :merkelroot => nil ,
-        :time => DateTime.utc_now(), 
-        :bits => "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 
+        :time => DateTime.utc_now(),
+        :bits => "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         :nonce => 0,
         :transactions => []
         }
         block
-
     end
+
     @doc """
-    
+    returns the root of the merkel tree formed by the transactions.
     """
-#CreateMtree function returns the root of the merkel tree formed by the transactions.
-    def createMTree(list1) do
+    def create_merkle_tree(list1) do
         list2 = []
         size = length(list1)
         mTree(list1,list2,size)
     end
 
-#Returns merkel root or hash codes the hashes formed from the previous iteration.
+    @doc """
+    returns merkel root or hash codes the hashes formed from the previous iteration.
+    """
     def mTree([],list2,0) do
         if(length(list2) <= 1) do
             #IO.puts "returning merkel root"
@@ -34,9 +37,10 @@ defmodule Block do
         end
     end
 
-#Called when hashing with itself is required.
+    @doc """
+    called when self-hashing is required.
+    """
     def mTree(list,list2,1) do
-        #IO.puts "in 1"
         [head | tail] = list
         h = :crypto.hash(:sha256, "#{head}#{head}") |> Base.encode16
         h = [:crypto.hash(:sha256, "#{h}") |> Base.encode16]
@@ -44,6 +48,9 @@ defmodule Block do
         mTree(tail,clist,length(tail))
     end
 
+    @doc """
+    called when size > 1
+    """
     def mTree(list,list2,size) do
         #IO.puts "in 2"
         [x,y | tail] = list
@@ -58,8 +65,10 @@ defmodule Block do
         end
     end
 
-    #To verify whether the block created a valid block or not.
-    def verifyBlock(block) do
+    @doc """
+    verifies whether a valid block was created or not
+    """
+    def verify_block(block) do
         version = block[:version]
         previousblock = block[:previousblock]
         merkelroot = block[:merkelroot]
@@ -72,14 +81,10 @@ defmodule Block do
         result
     end
 
-    def check(version,previousblock,merkelroot,time,bits,nonce,blockHash) do
+    defp check(version,previousblock,merkelroot,time,bits,nonce,blockHash) do
         ha = :crypto.hash(:sha256,"#{version}#{previousblock}#{merkelroot}#{time}#{nonce}")|>Base.encode16
         ha = :crypto.hash(:sha256,ha) |> Base.encode16
-        if(blockHash == ha) do
-            true
-        else
-            false
-        end
+        blockHash == ha
     end
 
 # Test block which created a sample block for testing.
@@ -88,11 +93,11 @@ defmodule Block do
         mr = :crypto.hash(:sha256, "merkel root header")
         m = %{ :blockHash => nil,
         :version => 1,
-        :previousblock => h , 
+        :previousblock => h ,
         :merkelroot => mr ,
-        :time => DateTime.utc_now(), 
+        :time => DateTime.utc_now(),
         #:bits => 1d00ffff
-        :bits => "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 
+        :bits => "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         :nonce => 0,
         :transactions => []
       }
@@ -109,16 +114,16 @@ defmodule Block do
     #     mr = :crypto.hash(:sha256, "merkel root header")
     #     m = %{ :blockHash => nil,
     #     :version => 1,
-    #     :previousblock => h , 
+    #     :previousblock => h ,
     #     :merkelroot => mr ,
-    #     :time => DateTime.utc_now(), 
+    #     :time => DateTime.utc_now(),
     #     #:bits => 1d00ffff
-    #     :bits => "003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 
+    #     :bits => "003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
     #     :nonce => 0,
     #     :transactions => []
     #   }
     #   block = Mining.mine(m)
-      
+
     #   verifyBlock(block)
 
     # end

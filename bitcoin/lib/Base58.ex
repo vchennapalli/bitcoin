@@ -20,7 +20,7 @@ defmodule Base58 do
 
   def encode(data, hash) do
     character = <<Enum.at(@alphabet, rem(data, 58))>>
-    encode(div(data, 58), hash <> character)
+    encode(div(data, 58), character <> hash)
   end
 
 

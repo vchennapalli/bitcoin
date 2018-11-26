@@ -9,7 +9,7 @@ defmodule Bitcoin do
   def main do
     num_users = 2
     {:ok, agent_pid} = Neighbors.start_link(nil)
-    {:ok, super_pid} = start_link(num_users)
+    {:ok, super_pid} = start_link(num_users - 1)
     update_agent(Supervisor.which_children(super_pid), agent_pid)
 
   end
@@ -25,34 +25,61 @@ defmodule Bitcoin do
   creates users in the peer-to-peer network
   """
   def start_link(num_users) do
-    users = create_users(num_users, [])
+    {private_keys, public_keys, public_addresses} = generate_keys(num_users, [], [], [])
+
+    keys = %{
+      "private_keys" => private_keys,
+      "public_keys" => public_keys,
+      "public_addresses" => public_addresses
+    }
+
+    users = create_users(num_users, num_users, keys, [])
     Supervisor.start_link(users, strategy: :one_for_one)
   end
 
   @doc """
+  generates required number of triplets
+  """
+  def generate_keys(num_users, private_keys, public_keys, public_addresses) do
+    if num_users >= 0 do
+      {private_key, public_key, public_address} = KeyGenerator.everything()
+      generate_keys(num_users - 1, private_keys ++ [private_key], public_keys ++ [public_key], public_addresses ++ [public_address])
+    else
+      {private_keys, public_keys, public_addresses}
+    end
+  end
+
+
+  @doc """
   returns an array of users withi initial state
   """
-  def create_users(n, users) do
-    if n > 0 do
+  def create_users(n, num_users, keys, users) do
+    if n >= 0 do
+      public_addresses = Map.get(keys, "public_addresses")
+      {_, public_addresses} = List.pop_at(public_addresses, n)
+
       users = [
         %{
           id: n,
           start: {User, :start_link,
             [%{
              :wallet => %{
-               :private_key => nil,
-               :public_key => nil,
-               :public_address => nil,
+               :private_key => Map.get(keys, "private_keys") |> Enum.at(n),
+               :public_key => Map.get(keys, "public_keys") |> Enum.at(n),
+               :public_address => Map.get(keys, "public_addresses") |> Enum.at(n),
                :UTXOs => [],
              },
               :blockchain => [],
               :mempool => MapSet.new(),
+              :id => n,
+              :num_users => num_users,
+              :public_addresses => public_addresses
             }]
           }
         }
         | users]
 
-      create_users(n-1, users)
+      create_users(n-1, num_users, keys, users)
     else
       users
     end
