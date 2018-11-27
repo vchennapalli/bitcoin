@@ -53,7 +53,7 @@ defmodule Bitcoin do
 
 
   @doc """
-  returns an array of users withi initial state
+  returns an array of users with initial state
   """
   def create_users(n, num_users, keys, users) do
     if n >= 0 do
@@ -69,13 +69,14 @@ defmodule Bitcoin do
                :private_key => Map.get(keys, "private_keys") |> Enum.at(n),
                :public_key => Map.get(keys, "public_keys") |> Enum.at(n),
                :public_address => Map.get(keys, "public_addresses") |> Enum.at(n),
-               :UTXOs => [],
+               :my_UTXOs => [],
              },
               :blockchain => [],
               :mempool => MapSet.new(),
               :id => n,
               :num_users => num_users,
-              :public_addresses => public_addresses
+              :public_addresses => public_addresses,
+              :all_UTXOs => []
             }]
           }
         }

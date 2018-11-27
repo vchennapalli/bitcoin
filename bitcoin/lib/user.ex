@@ -1,56 +1,11 @@
 defmodule User do
+  alias Block, as: B
+  alias Transaction, as: T
+  alias Helper, as: H
   @moduledoc """
   contains the definitions and functions for wallet, blockchain handling, mining etc
   """
   use GenServer
-  @templates %{
-    :transaction => %{
-      :hash => nil,
-      :version => 1,
-      :input_counter => 0,
-      :inputs => [],
-      :output_counter => 0,
-      :outputs => [],
-      :locktime => 0 # default
-    },
-
-    :input => %{
-      :tx_hash => nil,
-      :output_index => nil, # 4 bytes
-      # :unlocking_script_size => 1 - 9, # bytes
-      :scriptSig => nil
-      # :sequence_number => 0xFFFFFFFF
-    },
-
-    :output => %{
-      :value => nil,
-      # :locking_script_size => 1 - 9, # bytes
-      :scriptPubKey => nil
-    },
-
-    :coinbase_trasaction => %{
-      :hash => nil,
-      :version => 1,
-      :input_counter => 1,
-      :inputs => [%{
-        :coinbase => "",
-        :sequence_number => ""
-      }],
-      :output_counter => 1,
-      :outputs => [%{
-        :value => 500000000,
-        :scriptPubKey => ""
-      }]
-    },
-
-    :UTXO => %{
-      :tx_hash => "",
-      :tx_output_n => "",
-      :value => "",
-      :confirmations => ""
-    }
-  }
-
 
   # ASSUMPTIONS
   # All nodes are full nodes -
@@ -62,13 +17,6 @@ defmodule User do
   # - handle_calls (synchronous)
   #   - deliver_transaction (from originator to a random connected node in the bitcoin network)
   #
-  # - handle_info (asynchronous)
-  #   - propagate_transaction (to 3-4 neighbors after validation of transaction. Validation prevents attacks on the network)
-  #   - propagate_block
-  #
-  # UNKNOWNS
-  # Coinbase Transactions
-  # Genesis Block
 
   @doc """
   first step
@@ -89,7 +37,7 @@ defmodule User do
   def handle_cast({tag, message}, state) do
     new_state =
     case tag do
-      :receive_transaction -> receive_transaction(message, state)
+      :receive_transaction -> T.receive_transaction(message, state)
       :receive_block -> receive_block(message, state)
       :perform_transaction -> perform_transaction(message, state)
     end
@@ -99,30 +47,9 @@ defmodule User do
 
   end
 
-  defp receive_transaction(transaction, state) do
 
-    mempool = Map.get(state, :mempool)
-
-    mempool =
-    if validate_transaction(transaction) do
-      MapSet.put(mempool, transaction)
-
-    end
-
-    state = Map.put(state, :mempool, mempool)
-
-    if MapSet.size(mempool) >= 4 do
-
-    end
-  end
-
-
-  defp create_block(mempool) do
-
-  end
-
-  defp validate_transaction(transaction) do
-
+  defp create_block(state) do
+    nil
   end
 
   defp receive_block(_message, _state) do
@@ -137,7 +64,7 @@ defmodule User do
     UTXO = get_input(state)
 
 
-    if UTXO !== nil
+    # if UTXO !== nil
 
 
 
@@ -153,7 +80,7 @@ defmodule User do
   defp get_input(state) do
     UTXOs = get_in(state, [:wallet, :UTXOs])
     public_address = get_in(state, [:wallet, :public_address])
-    hashed_public_address = :crypto.hash(:sha256, public_address)
+    hashed_public_address = public_address |> Helper.hash(:sha256)
     UTXO = lookup_utxos(UTXOs, hashed_public_address)
   end
 

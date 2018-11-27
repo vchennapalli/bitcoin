@@ -1,4 +1,5 @@
 defmodule KeyGenerator do
+  alias Helper, as: H
   @moduledoc """
   generates a private key, public key and public address
   """
@@ -16,16 +17,10 @@ defmodule KeyGenerator do
     private_key = generate_private_key()
     public_key = generate_public_key(private_key)
     public_address = public_key |> generate_public_hash() |> generate_public_address()
-    {private_key |> :binary.encode_unsigned(), public_key, public_address}
-  end
 
-  @doc """
-  generates new public key and public address
-  """
-  def public(private_key) do
-    public_key = generate_public_key(private_key)
-    public_address = public_key |> generate_public_hash() |> generate_public_address()
-    {public_key, public_address}
+    private_key = private_key |> :binary.encode_unsigned()
+
+    {private_key, public_key, public_address}
   end
 
 
@@ -60,11 +55,9 @@ defmodule KeyGenerator do
   """
   def generate_public_hash(public_key) do
     public_key
-    |> hash(:sha256)
-    |> hash(:ripemd160)
+    |> H.hash(:sha256)
+    |> H.hash(:ripemd160)
   end
-
-  defp hash(data, algorithm), do: :crypto.hash(algorithm, data)
 
   @doc """
   generates public address to receive transactions
