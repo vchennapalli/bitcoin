@@ -1,0 +1,16 @@
+BLOCK SPECIFIC
+1. Inclusion Test of a transaction in a new block
+2. Syntactical Check of the new block
+3. Proof Of Work Check
+4. Size of block
+5. Only the first transaction is a coinbase transaction
+6. Coinbase transaction of the right amount (reward + fees)
+
+TRANSACTION SPECIFIC
+1. Coinbase Transaction Generation
+2. SISO Transaction
+3. MISO Transaction
+4. MIMO Transaction
+5. Transaction with Transaction Fee
+6. Validation of Transaction
+7. Verification of Transaction

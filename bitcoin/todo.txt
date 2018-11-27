@@ -1,0 +1,20 @@
+LEVEL 3 FEATURES - HIGH PRIORITY
+
+1. Toggle Box Transaction Fees
+2. Transaction Inclusion Priority
+3. Reduction in Reward with Increase in Blockchain Length
+4. Double Spending Problem
+5. Preventing miner from spending the reward until height increases by 3-4 blocks
+
+LEVEL 2 FEATURES
+
+1. Halving of reward per 10 blocks
+2. Priority for transactions included in a block
+3. Having variable difficulty
+
+LEVEL 1 FEATURES
+
+1. Having the height of the block in the prefix of coinbash_value.
+
+MINOR FEATURES
+1. Timestamp (in block header) in Unix Epoch
