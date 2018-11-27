@@ -12,6 +12,8 @@ defmodule Bitcoin do
     {:ok, super_pid} = start_link(num_users - 1)
     update_agent(Supervisor.which_children(super_pid), agent_pid)
 
+    begin(agent_pid, num_users)
+
   end
 
   @doc """
@@ -96,5 +98,14 @@ defmodule Bitcoin do
   end
 
   def update_agent([], _), do: nil
+
+  @doc """
+
+  """
+  def begin(agent_pid, num_users) do
+    satoshi = :rand.uniform(num_users) - 1
+    satoshi_pid = Neighbors.get(agent_pid, satoshi)
+    send satoshi_pid, {:genesis}
+  end
 
 end

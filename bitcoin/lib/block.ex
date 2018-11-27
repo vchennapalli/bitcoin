@@ -4,7 +4,7 @@ defmodule Block do
     creates block from the given transactions
     """
     def create_block() do
-        block = %{ :blockHash => nil,
+        block = %{ :blockhash => nil,
         :version => 1,
         :previousblock => "0000000000000000000000000000000000000000000000000000000000000000",
         :merkelroot => nil ,
@@ -22,36 +22,36 @@ defmodule Block do
     def create_merkle_tree(list1) do
         list2 = []
         size = length(list1)
-        mTree(list1,list2,size)
+        create_merkle_levels(list1,list2,size)
     end
 
     @doc """
-    returns merkel root or hash codes the hashes formed from the previous iteration.
+    returns merkel root or hash codes the hashes formed during the previous iteration.
     """
-    def mTree([],list2,0) do
+    def create_merkle_levels([],list2,0) do
         if(length(list2) <= 1) do
             #IO.puts "returning merkel root"
             list2
         else
-            mTree(list2,[],length(list2))
+            create_merkle_levels(list2,[],length(list2))
         end
     end
 
     @doc """
     called when self-hashing is required.
     """
-    def mTree(list,list2,1) do
+    def create_merkle_levels(list,list2,1) do
         [head | tail] = list
         h = :crypto.hash(:sha256, "#{head}#{head}") |> Base.encode16
         h = [:crypto.hash(:sha256, "#{h}") |> Base.encode16]
         clist = list2 ++ h
-        mTree(tail,clist,length(tail))
+        create_merkle_levels(tail,clist,length(tail))
     end
 
     @doc """
     called when size > 1
     """
-    def mTree(list,list2,size) do
+    def create_merkle_levels(list,list2,size) do
         #IO.puts "in 2"
         [x,y | tail] = list
         h = :crypto.hash(:sha256, "#{x}#{y}") |> Base.encode16
@@ -59,9 +59,9 @@ defmodule Block do
         #IO.inspect h
         clist = list2 ++ h
         if(tail != []) do
-            mTree(tail,clist,length(tail))
+            create_merkle_levels(tail,clist,length(tail))
         else
-            mTree([],clist,0)
+            create_merkle_levels([],clist,0)
         end
     end
 
@@ -75,16 +75,14 @@ defmodule Block do
         time = block[:time]
         bits = block[:bits]
         nonce = block[:nonce]
-        blockHash = block[:blockHash]
+        blockhash = block[:blockhash]
 
-        result = check(version,previousblock,merkelroot,time,bits,nonce,blockHash)
-        result
+        check(version,previousblock,merkelroot,time,bits,nonce,blockhash)
     end
 
-    defp check(version,previousblock,merkelroot,time,bits,nonce,blockHash) do
+    defp check(version,previousblock,merkelroot,time,bits,nonce,blockhash) do
         ha = :crypto.hash(:sha256,"#{version}#{previousblock}#{merkelroot}#{time}#{nonce}")|>Base.encode16
-        ha = :crypto.hash(:sha256,ha) |> Base.encode16
-        blockHash == ha
+        blockhash == :crypto.hash(:sha256,ha) |> Base.encode16 and blockhash <= bits
     end
 
 # Test block which created a sample block for testing.

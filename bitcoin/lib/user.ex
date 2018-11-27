@@ -3,6 +3,54 @@ defmodule User do
   contains the definitions and functions for wallet, blockchain handling, mining etc
   """
   use GenServer
+  @templates %{
+    :transaction => %{
+      :hash => nil,
+      :version => 1,
+      :input_counter => 0,
+      :inputs => [],
+      :output_counter => 0,
+      :outputs => [],
+      :locktime => 0 # default
+    },
+
+    :input => %{
+      :tx_hash => nil,
+      :output_index => nil, # 4 bytes
+      # :unlocking_script_size => 1 - 9, # bytes
+      :scriptSig => nil
+      # :sequence_number => 0xFFFFFFFF
+    },
+
+    :output => %{
+      :value => nil,
+      # :locking_script_size => 1 - 9, # bytes
+      :scriptPubKey => nil
+    },
+
+    :coinbase_trasaction => %{
+      :hash => nil,
+      :version => 1,
+      :input_counter => 1,
+      :inputs => [%{
+        :coinbase => "",
+        :sequence_number => ""
+      }],
+      :output_counter => 1,
+      :outputs => [%{
+        :value => 500000000,
+        :scriptPubKey => ""
+      }]
+    },
+
+    :UTXO => %{
+      :tx_hash => "",
+      :tx_output_n => "",
+      :value => "",
+      :confirmations => ""
+    }
+  }
+
 
   # ASSUMPTIONS
   # All nodes are full nodes -
@@ -47,6 +95,10 @@ defmodule User do
     end
   end
 
+  def handle_info({:genesis}, state) do
+
+  end
+
   defp receive_transaction(transaction, state) do
 
     mempool = Map.get(state, :mempool)
@@ -85,6 +137,9 @@ defmodule User do
     UTXO = get_input(state)
 
 
+    if UTXO !== nil
+
+
 
   end
 
@@ -114,55 +169,5 @@ defmodule User do
   defp lookup_utxos([], _) do
     nil
   end
-
-
-
-  transaction = %{
-    :hash => "",
-    :version => false,
-    :input_counter => 2,
-    :inputs => ['a', 'b'],
-    :output_counter => 1,
-    :outputs => ['c'],
-    :locktime => 0 # default
-  }
-
-  output_structure = %{
-    :value => 1 - 100000000,
-    # :locking_script_size => 1 - 9, # bytes
-    :scriptPubKey => "script"
-  }
-
-  input_structure = %{
-    :tx_hash => nil,
-    :output_index => nil, # 4 bytes
-    # :unlocking_script_size => 1 - 9, # bytes
-    :scriptSig => nil
-    # :sequence_number => 0xFFFFFFFF
-  }
-
-
-  coinbase_transaction = %{
-    :hash => "",
-    :version => false,
-    :input_counter => 1,
-    :inputs => [%{
-      :coinbase => "",
-      :sequence_number => ""
-    }],
-    :output_counter => 1,
-    :outputs => [%{
-      :value => 500000000,
-      :scriptPubKey => "script"
-    }]
-  }
-
-  UTXO_format = %{
-    :tx_hash => "",
-    :tx_output_n => "",
-    :value => "",
-    :confirmations => ""
-  }
-
 
 end
