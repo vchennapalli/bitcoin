@@ -10,7 +10,6 @@ defmodule Transaction do
       :inputs => [],
       :output_counter => 0,
       :outputs => [],
-      :locktime => 0
     },
 
     :input => %{
@@ -29,13 +28,14 @@ defmodule Transaction do
       :version => 1,
       :input_counter => 1,
       :inputs => [%{
-        :transaction_hash => 0x00,
-        :output_index => 0xFFFFFFFF,
+        :tx_hash => 0x00,
+        :tx_output_n => 0xFFFFFFFF,
         :coinbase => nil
       }],
       :output_counter => 1,
       :outputs => [%{
         :value => 500000000,
+        :tx_output_n => 0,
         :script_pub_key => nil
       }]
     },
@@ -64,7 +64,7 @@ defmodule Transaction do
     my_address = get_in(state, [:wallet, :public_address])
 
     if value > 3 do
-      transaction_fee = max(:math.floor(0.05 * value) |> round(), 1)
+      transaction_fee = max(:math.floor(0.01 * value) |> round(), 1)
       change = value - :math.floor(transaction_fee / 2) |> round()
       non_change = value - change - transaction_fee
       value_split = [non_change, change]

@@ -11,20 +11,20 @@ defmodule MerkleRoot do
 
     if length(transactions) == 1 do
       [coinbase | _] = transactions
-      coinbase |> H.double_hash(:sha256)
+      coinbase |> H.transaction_hash(:sha256)
     else
       construct_tree(transactions, [])
     end
   end
 
   @doc """
-  generates merkle parent(s) when there are numtiple children
+  generates merkle parent(s) when there are multiple children
   """
   def construct_tree([child1, child2 | children], parents) do
-    child1_hash = child1 |> H.double_hash(:sha256)
-    child2_hash = child2 |> H.double_hash(:sha256)
+    child1_hash = child1 |> H.transaction_hash(:sha256)
+    child2_hash = child2 |> H.transaction_hash(:sha256)
 
-    parent = "#{child1_hash}#{child2_hash}" |> H.double_hash(:sha256)
+    parent = "#{child1_hash}#{child2_hash}" |> H.transaction_hash(:sha256)
     parents = parents ++ [parent]
     construct_tree(children, parents)
   end
@@ -36,8 +36,8 @@ defmodule MerkleRoot do
     if length(parents) == 0 do
       child
     else
-      child_hash = child |> H.double_hash(:sha256)
-      parent = "#{child_hash}#{child_hash}" |> H.double_hash(:sha256)
+      child_hash = child |> H.transaction_hash(:sha256)
+      parent = "#{child_hash}#{child_hash}" |> H.transaction_hash(:sha256)
       parents = parents ++ [parent]
       construct_tree(parents, [])
     end
