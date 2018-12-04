@@ -10,7 +10,7 @@ defmodule Base58Check do
   @doc """
   returns Base58
   """
-  def encode(version, data) do
+  def encode(data, version \\ <<0x00>>) do
     version <> data <> checksum(version, data)
     |> Base58.encode
   end
