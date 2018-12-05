@@ -4,7 +4,7 @@ BLOCK SPECIFIC
 3. Proof Of Work Check
 4. Size of block
 5. Only the first transaction is a coinbase transaction
-6. Coinbase transaction of the right amount (reward + fees)
+6. Coinbase transaction of the right value (reward + fees)
 
 TRANSACTION SPECIFIC
 1. Coinbase Transaction Generation
@@ -14,3 +14,4 @@ TRANSACTION SPECIFIC
 5. Transaction with Transaction Fee
 6. Validation of Transaction
 7. Verification of Transaction
+8. Input Sum > Output Sum

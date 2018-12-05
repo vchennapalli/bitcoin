@@ -1,0 +1,6 @@
+- Create Genisis Block.
+- Global UTXOs key -> "tx_hash:tx_output_n"
+- Perform a couple of transactions between two nodes.
+- Validate and verify the transactions.
+- Create a block and verify.
+- Add it to the blockchain.

@@ -32,13 +32,14 @@ defmodule FullNode do
     {:noreply, new_state}
   end
 
-  def handle_cast({:initiate_transaction}, state) do
+  def handle_cast(:initiate_transaction, state) do
     new_state = T.initiate_transaction(state)
     {:noreply, new_state}
   end
 
-  def handle_info({:genesis}, state) do
+  def handle_info(:genesis, state) do
     new_state = B.create(state)
+    {:noreply, new_state}
   end
 
 

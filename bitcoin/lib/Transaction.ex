@@ -1,5 +1,6 @@
 defmodule Transaction do
   alias KeyGenerator, as: KG
+  alias Helper, as: H
   @moduledoc """
   contains all the functionality relevant to transactions
   """
@@ -159,6 +160,53 @@ defmodule Transaction do
       {nil, state}
     end
   end
+
+
+  @doc """
+  generates new UTXOs from a transaction and updates and returns the new state
+  """
+  def add_UTXOs(state, transaction) do
+    IO.inspect transaction
+    tx_hash = H.transaction_hash(transaction, :sha256)
+    outputs = transaction[:outputs]
+    new_UTXOs = generate_UTXOs(tx_hash, outputs, 0, %{})
+
+    all_UTXOs = Map.get(state, :all_UTXOs)
+    all_UTXOs = Map.merge(all_UTXOs, new_UTXOs)
+    state = Map.put(state, :all_UTXOs, all_UTXOs)
+
+    my_UTXOs = get_in(state, [:wallet, :my_UTXOs])
+    Enum.each new_UTXOs, fn {k, v} ->
+      my_UTXOs = my_UTXOs ++ v
+    end
+
+    put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
+    
+  end
+
+
+  @doc """
+  generates UTXOs from the outputs of a transaction
+  """
+  def generate_UTXOs(tx_hash, outputs, idx, new_UTXOs) do
+    if length(outputs) == 0 do
+      new_UTXOs
+    else
+      [output | r_outputs] = outputs
+      new_UTXO = @templates[:UTXO]
+      new_UTXO = Map.merge(new_UTXO, %{
+        :tx_hash => tx_hash,
+        :tx_output_n => idx,
+        :script_pub_key => output[:script_pub_key],
+        :value => output[:value],
+        :confirmations => 0
+      })
+      
+      new_UTXOs = Map.put(new_UTXO, "#{tx_hash}:#{idx}", new_UTXO)
+      generate_UTXOs(tx_hash, r_outputs, idx+1, new_UTXOs)
+    end
+  end
+
 
 
   @doc """
