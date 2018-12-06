@@ -42,5 +42,4 @@ defmodule FullNode do
     {:noreply, new_state}
   end
 
-
 end

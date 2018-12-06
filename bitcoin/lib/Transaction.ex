@@ -16,6 +16,7 @@ defmodule Transaction do
     :input => %{
       :tx_hash => nil,
       :tx_output_n => nil,
+      :value => nil,
       :script_sig => nil
     },
 
@@ -94,20 +95,22 @@ defmodule Transaction do
       [UTXO | remaining_UTXOs] = UTXOs
       input = Map.get(@templates, :input)
 
-      tx_hash = Map.get(UTXO, :tx_hash)
+      tx_hash = UTXO[:tx_hash]
       input = Map.put(input, :tx_hash, tx_hash)
 
-      tx_output_n = Map.get(UTXO, :tx_output_n)
+      tx_output_n = UTXO[:tx_output_n]
       input = Map.put(input, :tx_output_n, tx_output_n)
 
       message = "#{tx_hash}:#{tx_output_n}"
       public_key = get_in(state, [:wallet, :public_key])
       private_key = get_in(state, [:wallet, :private_key])
       signature = :crypto.sign(:ecdsa, :sha256, message, [private_key, :secp256k1])
-      script_sig = public_key <>signature
+      script_sig = public_key <> signature
       input = Map.put(input, :script_sig, script_sig)
 
       UTXO_value = Map.get(UTXO, :value)
+      input = Map.put(input, :value, UTXO_value)
+
       value = value + UTXO_value
 
       inputs = inputs ++ [input]
@@ -166,10 +169,9 @@ defmodule Transaction do
   generates new UTXOs from a transaction and updates and returns the new state
   """
   def add_UTXOs(state, transaction) do
-    IO.inspect transaction
     tx_hash = H.transaction_hash(transaction, :sha256)
     outputs = transaction[:outputs]
-    new_UTXOs = generate_UTXOs(tx_hash, outputs, 0, %{})
+    new_UTXOs = extract_UTXOs(tx_hash, outputs, 0, %{})
 
     all_UTXOs = Map.get(state, :all_UTXOs)
     all_UTXOs = Map.merge(all_UTXOs, new_UTXOs)
@@ -180,15 +182,15 @@ defmodule Transaction do
       my_UTXOs = my_UTXOs ++ v
     end
 
-    put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
+    state = put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
     
   end
 
 
   @doc """
-  generates UTXOs from the outputs of a transaction
+  extracts UTXOs from the outputs of a transaction
   """
-  def generate_UTXOs(tx_hash, outputs, idx, new_UTXOs) do
+  def extract_UTXOs(tx_hash, outputs, idx, new_UTXOs) do
     if length(outputs) == 0 do
       new_UTXOs
     else
@@ -203,7 +205,49 @@ defmodule Transaction do
       })
       
       new_UTXOs = Map.put(new_UTXO, "#{tx_hash}:#{idx}", new_UTXO)
-      generate_UTXOs(tx_hash, r_outputs, idx+1, new_UTXOs)
+      extract_UTXOs(tx_hash, r_outputs, idx+1, new_UTXOs)
+    end
+  end
+
+  @doc """
+  updates the global UTXOs by removing UTXO that corresponds
+  to input and adding output as new UTXO
+  """
+  def update_global_UTXOs(state, transaction) do
+    all_UTXOs = Map.get(state, :all_UTXOs)
+    inputs = Map.get(transaction, :inputs)
+    outputs = Map.get(transaction, :outputs)
+
+
+  end
+
+  @doc """
+  removes the UTXOs corresponding to the inputs from global UTXOs
+  """
+  def remove_input_UTXOs(all_UTXOs, inputs) do
+    if length(inputs) == 0 do
+      all_UTXOs
+    else
+      [input | r_inputs] = inputs
+      tx_hash = Map.get(input, :tx_hash)
+      tx_output_n = Map.get(input, :tx_output_n)
+
+      all_UTXOs = Map.delete(all_UTXOs, "#{tx_hash}:#{tx_output_n}")
+      remove_input_UTXOs(all_UTXOs, r_inputs)
+    end
+  end
+
+  @doc """
+  adds the new transaction outputs to the global UTXOs
+  """
+  def add_output_UTXOs(all_UTXOs, outputs) do
+    if length(outputs) == 0 do
+      all_UTXOs
+    else
+      [output | r_outputs]  = outputs
+      tx_hash = Map.get(output, :tx_hash)
+      tx_output_n = Map.get(output, :tx_output_n)
+      all_UTXOs = Map.put(all_UTXOs, "#{tx_hash}:#{tx_output_n}", )
     end
   end
 
