@@ -8,7 +8,6 @@ defmodule MerkleRoot do
   returns merkle root of raw transactions
   """
   def get_root(transactions) do
-
     if length(transactions) == 1 do
       [coinbase | _] = transactions
       coinbase |> H.transaction_hash(:sha256)

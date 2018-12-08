@@ -54,20 +54,20 @@ defmodule Transaction do
 
   @doc """
   creates a transaction
-  TODO: - what if input amount < 3
   """
   def initiate_transaction(state) do
+    # IO.inspect state
     receiver_address = select_receiver(state)
-    {UXTOs, state} = select_UTXOs(state)
+    {my_UTXOs, state} = select_UTXOs(state)
     transaction = Map.get(@templates, :transaction)
 
-    {inputs, value} = construct_transaction_inputs(state, UTXOs, [], 0)
-
+    {inputs, value} = construct_transaction_inputs(state, my_UTXOs, [], 0)
+    
     my_address = get_in(state, [:wallet, :public_address])
 
     if value > 3 do
-      transaction_fee = max(:math.floor(0.01 * value) |> round(), 1)
-      change = value - :math.floor(transaction_fee / 2) |> round()
+      transaction_fee = max(:math.floor(0.02 * value) |> round(), 1)
+      change = (value - transaction_fee) / 2 |> round()
       non_change = value - change - transaction_fee
       value_split = [non_change, change]
       receiver_addresses = [receiver_address, my_address]
@@ -87,18 +87,17 @@ defmodule Transaction do
   @doc """
   uses UTXOs to construct input list for a transaction
   """
-  def construct_transaction_inputs(state, UTXOs, inputs, value) do
-    len = length(UTXOs)
-    if UTXOs == nil or len == 0 do
+  def construct_transaction_inputs(state, my_UTXOs, inputs, value) do
+    if my_UTXOs == nil or length(my_UTXOs) == 0 do
       {inputs, value}
     else
-      [UTXO | remaining_UTXOs] = UTXOs
+      [single_UTXO | remaining_UTXOs] = my_UTXOs
       input = Map.get(@templates, :input)
 
-      tx_hash = UTXO[:tx_hash]
+      tx_hash = single_UTXO[:tx_hash]
       input = Map.put(input, :tx_hash, tx_hash)
 
-      tx_output_n = UTXO[:tx_output_n]
+      tx_output_n = single_UTXO[:tx_output_n]
       input = Map.put(input, :tx_output_n, tx_output_n)
 
       message = "#{tx_hash}:#{tx_output_n}"
@@ -107,11 +106,11 @@ defmodule Transaction do
       signature = :crypto.sign(:ecdsa, :sha256, message, [private_key, :secp256k1])
       script_sig = public_key <> signature
       input = Map.put(input, :script_sig, script_sig)
+      
+      v = Map.get(single_UTXO, :value)
+      input = Map.put(input, :value, v)
 
-      UTXO_value = Map.get(UTXO, :value)
-      input = Map.put(input, :value, UTXO_value)
-
-      value = value + UTXO_value
+      value = value + v
 
       inputs = inputs ++ [input]
       construct_transaction_inputs(state, remaining_UTXOs, inputs, value)
@@ -143,6 +142,7 @@ defmodule Transaction do
   """
   def select_receiver(state) do
     public_addresses = Map.get(state, :public_addresses)
+    # IO.inspect public_addresses
     Enum.random(public_addresses)
   end
 
@@ -166,29 +166,18 @@ defmodule Transaction do
 
 
   @doc """
-  generates new UTXOs from a transaction and updates and returns the new state
+  generates new UTXOs from a transaction and adds them TO GLOBAL UTXOs
   """
-  def add_UTXOs(state, transaction) do
+  def add_UTXOs(all_UTXOs, transaction) do
     tx_hash = H.transaction_hash(transaction, :sha256)
     outputs = transaction[:outputs]
     new_UTXOs = extract_UTXOs(tx_hash, outputs, 0, %{})
-
-    all_UTXOs = Map.get(state, :all_UTXOs)
-    all_UTXOs = Map.merge(all_UTXOs, new_UTXOs)
-    state = Map.put(state, :all_UTXOs, all_UTXOs)
-
-    my_UTXOs = get_in(state, [:wallet, :my_UTXOs])
-    Enum.each new_UTXOs, fn {k, v} ->
-      my_UTXOs = my_UTXOs ++ v
-    end
-
-    state = put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
-    
+    Map.merge(all_UTXOs, new_UTXOs)
   end
 
 
   @doc """
-  extracts UTXOs from the outputs of a transaction
+  extracts UTXOs from the outputs of a transaction and returns them
   """
   def extract_UTXOs(tx_hash, outputs, idx, new_UTXOs) do
     if length(outputs) == 0 do
@@ -204,25 +193,13 @@ defmodule Transaction do
         :confirmations => 0
       })
       
-      new_UTXOs = Map.put(new_UTXO, "#{tx_hash}:#{idx}", new_UTXO)
+      new_UTXOs = Map.put(new_UTXOs, "#{tx_hash}:#{idx}", new_UTXO)
       extract_UTXOs(tx_hash, r_outputs, idx+1, new_UTXOs)
     end
   end
 
   @doc """
-  updates the global UTXOs by removing UTXO that corresponds
-  to input and adding output as new UTXO
-  """
-  def update_global_UTXOs(state, transaction) do
-    all_UTXOs = Map.get(state, :all_UTXOs)
-    inputs = Map.get(transaction, :inputs)
-    outputs = Map.get(transaction, :outputs)
-
-
-  end
-
-  @doc """
-  removes the UTXOs corresponding to the inputs from global UTXOs
+  removes the UTXOs corresponding to the inputs FROM GLOBAL UTXOs
   """
   def remove_input_UTXOs(all_UTXOs, inputs) do
     if length(inputs) == 0 do
@@ -236,42 +213,91 @@ defmodule Transaction do
       remove_input_UTXOs(all_UTXOs, r_inputs)
     end
   end
+  
 
   @doc """
-  adds the new transaction outputs to the global UTXOs
+  updates the global UTXOs by removing UTXO that corresponds
+  to input and adding output as new UTXO
   """
-  def add_output_UTXOs(all_UTXOs, outputs) do
-    if length(outputs) == 0 do
-      all_UTXOs
-    else
-      [output | r_outputs]  = outputs
-      tx_hash = Map.get(output, :tx_hash)
-      tx_output_n = Map.get(output, :tx_output_n)
-      all_UTXOs = Map.put(all_UTXOs, "#{tx_hash}:#{tx_output_n}", )
-    end
+  def update_global_UTXOs(state, transaction) do
+    all_UTXOs = Map.get(state, :all_UTXOs)
+
+    inputs = Map.get(transaction, :inputs)
+    all_UTXOs = remove_input_UTXOs(all_UTXOs, inputs)
+
+    state = Map.put(state, :all_UTXOs, all_UTXOs)
+    all_UTXOs = add_UTXOs(all_UTXOs, transaction)
+    Map.put(state, :all_UTXOs, all_UTXOs)
   end
 
+
+  @doc """
+  updates local mempool afte
+  """
+  def update_local_UTXOs(state, tx_hash, outputs) do
+    if length(outputs) == 0 do
+      state
+    else
+      [output | r_outputs] = outputs
+      script_pub_key = output[:script_pub_key]
+      my_public_address = get_in(state, [:wallet, :public_address])
+      
+      state = 
+      if script_pub_key == my_public_address do
+        my_UTXOs = get_in(state, [:wallet, :my_UTXOs])
+
+        new_UTXO = @templates[:UTXO]
+        new_UTXO = Map.merge(new_UTXO, %{
+          :tx_hash => tx_hash,
+          :tx_output_n => output[:tx_output_n],
+          :script_pub_key => output[:script_pub_key],
+          :value => output[:value],
+          :confirmations => 0
+        })
+        my_UTXOs = my_UTXOs ++ [new_UTXO]
+        # IO.inspect my_UTXOs
+        put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
+      else
+        state
+      end
+
+      update_local_UTXOs(state, tx_hash, r_outputs)
+    end
+  end
 
 
   @doc """
   receives transaction sent by a user to anonymous user
   TODO: Complete it
   """
-  def receive_transaction(transaction, state) do
+  def receive_transaction(state, transaction) do
+    # IO.inspect transaction
     mempool = Map.get(state, :mempool)
-
-    mempool =
-    if validate_transaction(transaction) do
-      MapSet.put(mempool, transaction)
-
+    {state, mempool} = 
+    if validate_transaction(transaction) do # TODO and verify_transaction(state, transaction) do
+      trasaction_hash = H.transaction_hash(transaction, :sha256)
+      
+      mempool = Map.put(mempool, trasaction_hash, transaction)
+      outputs = transaction[:outputs]
+      tx_hash = H.transaction_hash(transaction, :sha256)
+      state = update_local_UTXOs(state, tx_hash,outputs)
+      state = update_global_UTXOs(state, transaction)
+      {Map.put(state, :mempool, mempool), mempool}
+    else
+      {state, mempool}
     end
 
-    # state = Map.put(state, :mempool, mempool)
-
-    # if MapSet.size(mempool) >= 4 do
-
-    # end
+    # IO.inspect state
+    if map_size(mempool) >= 4 do
+      IO.puts "HERE"
+      # TODO
+    end
+    state
   end
+
+
+
+  # --------------------VERIFICATION & VALIDATION BEGIN----------------------
 
   @doc """
   validates every transaction before adding to mempool
@@ -287,6 +313,7 @@ defmodule Transaction do
     o = Map.get(transaction, :outputs)
     l = Map.get(transaction, :locktime)
 
+
     if (v == nil or
       i == [] or
       i == nil or
@@ -294,8 +321,7 @@ defmodule Transaction do
       oc == nil or
       o == [] or
       o == nil or
-      l == nil or
-      map_size(transaction) != 6 or
+      map_size(transaction) != 5 or
       ic != length(i) or
       oc != length(o)) do
       false
@@ -334,9 +360,9 @@ defmodule Transaction do
     all_UTXOs = Map.get(state, :all_UTXOs)
 
     validity = verify_all_UTXOs(all_UTXOs, inputs, true)
-
+    # IO.inspect verify_all_UTXOs(all_UTXOs, inputs, true)
     if validity do
-      total_input_value = get_tx_input_value(all_UTXOs, inputs, 0)
+      total_input_value = get_tx_input_value(inputs, 0)
       outputs = Map.get(transaction, :outputs)
       total_output_value = get_tx_output_value(outputs, 0)
       total_input_value >= total_output_value
@@ -358,13 +384,15 @@ defmodule Transaction do
       key = "#{tx_hash}:#{tx_output_n}"
 
       single_UTXO = Map.get(all_UTXOs, key)
-
+      
       validity =
       if (single_UTXO !== nil) do
         verify_single_UTXO(single_UTXO, input, key)
       else
         false
       end
+
+      # IO.inspect validity
 
       verify_all_UTXOs(all_UTXOs, remaining_inputs, validity)
     end
@@ -380,19 +408,24 @@ defmodule Transaction do
     public_address = public_key |> KG.generate_public_hash() |> KG.generate_public_address()
 
     if public_address != script_pub_key do
+      IO.inspect "HERE"
       false
     else
       :crypto.verify(:ecdsa, :sha256, message, signature, [public_key, :secp256k1])
     end
   end
 
+
+# --------------------VERIFICATION & VALIDATION END----------------------
+
+# --------------------COINBASE TRANSACTION BEGIN-------------------------
+
   @doc """
   generates coinbase transaction
   """
   def generate_coinbase_transaction(state, transactions) do
-    all_UTXOs = Map.get(state, :all_UTXOs)
     public_address = get_in(state, [:wallet, :public_address])
-    {remaining_UTXOs, transactions_fee} = get_all_transactions_fee(all_UTXOs, transactions, 0)
+    transactions_fee = get_all_transactions_fee(transactions, 0)
     transaction = Map.get(@templates, :coinbase_transaction)
     outputs = Map.get(transaction, :outputs)
     [output | _] = outputs
@@ -402,10 +435,9 @@ defmodule Transaction do
     input = Map.put(input, :coinbase, "efa87c2618300197")
     transaction = Map.put(transaction, :inputs, [input])
     output = Map.put(output, :value, value)
+    output = Map.put(output, :script_pub_key, public_address)
     transaction = Map.put(transaction, :outputs, [output])
-    transaction = Map.put(transaction, :script_pub_key, public_address)
     
-    state = Map.put(state, :all_UTXOs, remaining_UTXOs)
     {state, transaction}
   end
 
@@ -425,44 +457,39 @@ defmodule Transaction do
   @doc """
   returns the transaction fees of all transactions
   """
-  def get_all_transactions_fee(all_UTXOs, transactions, fees) do
+  def get_all_transactions_fee(transactions, fees) do
     if length(transactions) == 0 do
-      {all_UTXOs, fees}
+      fees
     else
       [transaction | transactions] = transactions
-      {remaining_UTXOs, single_tx_fee} = get_one_transaction_fee(all_UTXOs, transaction)
-      get_all_transactions_fee(remaining_UTXOs, transactions, fees + single_tx_fee)
+      single_tx_fee = get_one_transaction_fee(transaction)
+      get_all_transactions_fee(transactions, fees + single_tx_fee)
     end
   end
 
   @doc """
   returns fee of single transaction
   """
-  def get_one_transaction_fee(all_UTXOs, transaction) do
+  def get_one_transaction_fee(transaction) do
     inputs = Map.get(transaction, :inputs)
     outputs = Map.get(transaction, :outputs)
-    {remaining_UTXOs, input_value} = get_tx_input_value(all_UTXOs, inputs, 0)
+    input_value = get_tx_input_value(inputs, 0)
     output_value = get_tx_output_value(outputs, 0)
-    {remaining_UTXOs, input_value - output_value}
+    input_value - output_value
   end
 
   @doc """
   returns total input value of single transaction
   """
-  def get_tx_input_value(all_UTXOs, inputs, value) do
+  def get_tx_input_value(inputs, value) do
     if length(inputs) == 0 do
-      {all_UTXOs, value}
+      value
     else
       [input | inputs] = inputs
-      tx_hash = Map.get(input, :tx_hash)
-      tx_output_n = Map.get(input, :tx_output_n)
-      key = "#{tx_hash}:#{tx_output_n}"
-      {single_UTXO, remaining_UTXOs} = Map.pop(all_UTXOs, key)
-      single_value = Map.get(single_UTXO, :value)
-      get_tx_input_value(remaining_UTXOs, inputs, value + single_value)
+      single_value = Map.get(input, :value)
+      get_tx_input_value(inputs, value + single_value)
     end
   end
-
 
   @doc """
   returns total value of single transaction
@@ -477,3 +504,6 @@ defmodule Transaction do
     end
   end
 end
+
+
+# --------------------COINBASE TRANSACTION END---------------------------

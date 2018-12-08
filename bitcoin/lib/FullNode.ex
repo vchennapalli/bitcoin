@@ -26,7 +26,7 @@ defmodule FullNode do
     new_state =
     case tag do
        :receive_transaction -> T.receive_transaction(message, state)
-       :receive_block -> B.receive_block(message, state)
+       :receive_block -> B.receive(message, 1, state)
     end
 
     {:noreply, new_state}
@@ -38,6 +38,7 @@ defmodule FullNode do
   end
 
   def handle_info(:genesis, state) do
+    IO.puts "HERE"
     new_state = B.create(state)
     {:noreply, new_state}
   end
