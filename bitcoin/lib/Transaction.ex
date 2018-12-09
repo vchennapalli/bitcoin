@@ -1,6 +1,7 @@
 defmodule Transaction do
   alias KeyGenerator, as: KG
   alias Helper, as: H
+  alias Block, as: B
   @moduledoc """
   contains all the functionality relevant to transactions
   """
@@ -77,6 +78,7 @@ defmodule Transaction do
       transaction = Map.put(transaction, :output_counter, length(outputs))
       transaction = Map.put(transaction, :inputs, inputs)
       transaction = Map.put(transaction, :outputs, outputs)
+      # IO.puts "Transaction of value #{value} initiated by #{my_address} - #{non_change} sent to #{receiver_address} - #{change} sent back to #{my_address} - #{transaction_fee} left for the miner"
       {transaction, state}
     else
       {nil, state}
@@ -287,12 +289,22 @@ defmodule Transaction do
       {state, mempool}
     end
 
-    # IO.inspect state
-    if map_size(mempool) >= 4 do
-      IO.puts "HERE"
-      # TODO
+    # IO.inspect map_size(state[:mempool])
+    
+    blockchain_size = length(state[:blockchain])
+    max_blocks = state[:max_blocks]
+
+    if blockchain_size == max_blocks do
+      parent = state[:parent]
+      Process.send(parent, :close, [])
     end
-    state
+
+    if map_size(mempool) >= 4 do
+      B.create(state)
+    else
+      {state, nil, nil}
+    end
+    
   end
 
 
