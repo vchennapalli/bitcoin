@@ -56,8 +56,6 @@ defmodule BitcoinTest do
   end
 
 
-
-
   @tag base58: true
   @tag all: true
   test "Base58 Test1" do
@@ -356,6 +354,7 @@ defmodule BitcoinTest do
             ]
           },
           :blockchain => [],
+          :blockhash => [],
           :mempool => %{},
           :num_users => 5,
           :public_addresses => [],
@@ -377,7 +376,7 @@ defmodule BitcoinTest do
           }
         }
 
-    {_state, _genesis_block, _height} = B.create(state)
+    {_state, _genesis_block, _height} = B.create_genesis_block(state)
     assert true
   end
 
@@ -412,6 +411,7 @@ defmodule BitcoinTest do
     :mempool => %{},
     :num_users => 5,
     :public_addresses => [],
+    :blockhash => [],
     :all_UTXOs => %{
       "123456:0" => %{
         :tx_hash => 123456,
@@ -430,7 +430,7 @@ defmodule BitcoinTest do
     }
   }
 
-    {_, block, _} = B.create(state)
+    {_state, block, _height} = B.create_genesis_block(state)
     assert B.validate_pow(block)
   end
 
@@ -464,6 +464,7 @@ defmodule BitcoinTest do
     :mempool => %{},
     :num_users => 5,
     :public_addresses => [],
+    :blockhash => [],
     :all_UTXOs => %{
       "123456:0" => %{
         :tx_hash => 123456,
@@ -487,7 +488,7 @@ defmodule BitcoinTest do
     mempool = Map.put(mempool, tx_hash, transaction)
     state = Map.put(state, :mempool, mempool)
     
-    {new_state, _, _} = B.create(state)
+    {_state, _block, _height} = B.create_genesis_block(state)
 
     assert true
   end

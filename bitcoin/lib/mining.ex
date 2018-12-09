@@ -32,4 +32,30 @@ defmodule Mining do
         end
     end
 
+    @doc """
+    checks if the pow is valid or not.
+    if not, increases the nonce and checks 
+    pow of that in the next callback.
+    """
+    def check_proof_of_work(state) do
+        block = state[:in_progress_block]
+        header = block[:header]
+        v = header[:version]
+        pbh = header[:previous_block_hash]
+        mr = header[:merkle_root]
+        t = header[:timestamp]
+        bits = header[:bits]
+        n = header[:nonce]
+
+        hash = "#{v}#{pbh}#{mr}#{t}#{n}" |> H.double_hash(:sha256) |> Base.encode16
+
+        if hash < bits do
+            {true, state}
+        else
+            state = put_in(state, [:in_progress_block, :header, :nonce], n+1)
+            {false, state}
+        end
+    end
+
+
 end

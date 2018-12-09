@@ -270,41 +270,21 @@ defmodule Transaction do
 
   @doc """
   receives transaction sent by a user to anonymous user
-  TODO: Complete it
   """
   def receive_transaction(state, transaction) do
     # IO.inspect transaction
-    mempool = Map.get(state, :mempool)
-    {state, mempool} = 
     if validate_transaction(transaction) do # TODO and verify_transaction(state, transaction) do
       trasaction_hash = H.transaction_hash(transaction, :sha256)
-      
+      mempool = Map.get(state, :mempool)
       mempool = Map.put(mempool, trasaction_hash, transaction)
       outputs = transaction[:outputs]
       tx_hash = H.transaction_hash(transaction, :sha256)
       state = update_local_UTXOs(state, tx_hash,outputs)
       state = update_global_UTXOs(state, transaction)
-      {Map.put(state, :mempool, mempool), mempool}
+      Map.put(state, :mempool, mempool)
     else
-      {state, mempool}
+      state
     end
-
-    # IO.inspect map_size(state[:mempool])
-    
-    blockchain_size = length(state[:blockchain])
-    max_blocks = state[:max_blocks]
-
-    if blockchain_size == max_blocks do
-      parent = state[:parent]
-      Process.send(parent, :close, [])
-    end
-
-    if map_size(mempool) >= 4 do
-      B.create(state)
-    else
-      {state, nil, nil}
-    end
-    
   end
 
 

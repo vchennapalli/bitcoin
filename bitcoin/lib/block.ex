@@ -15,7 +15,7 @@ defmodule Block do
           :previous_block_hash => "0000000000000000000000000000000000000000000000000000000000000000",
           :merkle_root => nil,
           :timestamp => nil,
-          :bits => "0000fffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          :bits => "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
           :nonce => 0
         },
         :num_transactions => nil,
@@ -23,7 +23,7 @@ defmodule Block do
       }
     }
 
-    @tpb 1 #transactions per block, including coinbase transaction
+    @tpb 4 #transactions per block, including coinbase transaction
 
     @doc """
     creates a block
@@ -62,13 +62,89 @@ defmodule Block do
         :previous_block_hash => pbh
       })
 
+      block = Map.put(block, :header, header)
+
+      state = Map.merge(state, 
+        %{:in_progress_block => block,
+          :continue_mining => true})
+      
+      state
+    end
+
+    def add_to_blockchain(state) do
+      block = state[:in_progress_block]
+      header = block[:header]
+      my_address = get_in(state, [:wallet, :public_address])
+      blockchain = state[:blockchain]
+      blockchain = blockchain ++ [block]
+
+      blockhash = state[:blockhash]
+      pbh = get_in(block, [:header, :previous_block_hash])
+      blockhash = blockhash ++ [pbh]
+      state = Map.put(state, :blockhash, blockhash)
+
+      height = length(blockchain)
+      # IO.puts "A new block mined by #{my_address} at height #{height}"
+      
+      state = Map.put(state, :blockchain, blockchain)
+      [coinbase_tx | _] = block[:transactions]
+      state = T.update_global_UTXOs(state, coinbase_tx)
+      coinbase_tx_hash = H.transaction_hash(coinbase_tx, :sha256)
+      state = T.update_local_UTXOs(state, coinbase_tx_hash, coinbase_tx[:outputs])
+
+      {state, block, height}
+
+    end
+
+@doc """
+creates a genesis block
+"""
+    def create_genesis_block(state) do
+      mempool = Map.get(state, :mempool)
+      mempool_list = Map.to_list(mempool)
+      {transactions, keys} = select_transactions(mempool_list, [], [])
+      mempool = Map.drop(mempool, keys)
+      state = Map.put(state, :mempool, mempool)
+
+      {state, coinbase_transaction} = T.generate_coinbase_transaction(state, transactions)
+      transactions = [coinbase_transaction] ++ transactions
+      merkle_root = transactions |> MR.get_root()
+      block = Map.get(@template, :new_block)
+      block = Map.merge(block, %{
+        :num_transactions => length(transactions),
+        :transactions => transactions
+      })
+
+      blockchain = Map.get(state, :blockchain)
+      header = Map.get(block, :header)
+
+      pbh = 
+        if length(blockchain) == 0 do
+          Map.get(header, :previous_block_hash)
+        else
+          [last_block] = Enum.take(blockchain, -1)
+          calculate_block_hash(last_block[:header])
+        end
+
+      header = Map.merge(header, %{
+        :merkle_root => merkle_root,
+        :timestamp => DateTime.utc_now(),
+        :previous_block_hash => pbh
+      })
+
       nonce = M.mine(header)
       my_address = get_in(state, [:wallet, :public_address])
-      IO.puts "A new block mined by #{my_address}"
+      # IO.puts "A new block mined by #{my_address}"
 
       header = Map.put(header, :nonce, nonce)
       block = Map.put(block, :header, header)
       blockchain = blockchain ++ [block]
+
+      blockhash = state[:blockhash]
+      pbh = get_in(block, [:header, :previous_block_hash])
+      blockhash = blockhash ++ [pbh]
+      state = Map.put(state, :blockhash, blockhash)
+
       height = length(blockchain)
       state = Map.put(state, :blockchain, blockchain)
       state = T.update_global_UTXOs(state, coinbase_transaction)
@@ -111,18 +187,46 @@ defmodule Block do
     def receive(state, block, height) do
       blockchain = state[:blockchain]
       public_address = get_in(state, [:wallet, :public_address])
-      IO.puts "A new block received by #{public_address}"
+      # IO.puts "A new block received by #{public_address}"
       cond do
         length(blockchain) < height and validate(block) ->
-          [coinbase | transactions] = Map.get(block, :transactions)
+          # IO.inspect "#{height}, #{length(blockchain)}, #{public_address}"
           mempool = Map.get(state, :mempool)
-          mempool = adjust_mempool(mempool, transactions)
+          # IO.puts "Block received by #{public_address} at height #{height}"
+          # put back the unblocked transactions
+          # IO.inspect state
+          in_progress_block = Map.get(state, :in_progress_block)
+          
+          mempool = 
+            if map_size(in_progress_block) != 0 do
+              [_ | transactions] = get_in(state, [:in_progress_block, :transactions])
+              adjust_mempool(mempool, transactions, :add)
+            else
+              mempool
+            end
+          
+          state = Map.merge(state, %{
+            :in_progress_block => %{},
+            :continue_mining => false})
+
+          # delete the blocked transactions
+          [coinbase | transactions] = Map.get(block, :transactions)
+          
+          mempool = adjust_mempool(mempool, transactions, :delete)
+
           state = Map.put(state, :mempool, mempool)
 
           state = T.update_global_UTXOs(state, coinbase)
 
-          blockchain = [block] ++ blockchain
-          Map.put(state, :blockchain, blockchain)
+          blockchain = blockchain ++ [block]
+          state = Map.put(state, :blockchain, blockchain)
+
+          blockhash = state[:blockhash]
+          pbh = get_in(block, [:header, :previous_block_hash])
+          blockhash = blockhash ++ [pbh]
+          Map.put(state, :blockhash, blockhash)
+
+          
         length(blockchain) == height and validate(block) ->
           state
         true -> 
@@ -135,17 +239,24 @@ defmodule Block do
     @doc """
     updates the mempool
     """
-    def adjust_mempool(mempool, transactions) do
+    def adjust_mempool(mempool, transactions, tag) do
       if length(transactions) == 0 do
         mempool
       else
         [transaction | transactions] = transactions
         tx_hash = H.transaction_hash(transaction, :sha256)
-        mempool = Map.delete(mempool, tx_hash)
-        adjust_mempool(mempool, transactions)
+        
+        mempool = 
+        case tag do
+          :delete ->     
+            Map.delete(mempool, tx_hash)
+          :add ->
+            Map.put(mempool, tx_hash, transaction)
+        end
+
+        adjust_mempool(mempool, transactions, tag)
       end
     end
-
 
 
     @doc """

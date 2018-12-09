@@ -7,8 +7,8 @@ defmodule Bitcoin do
   main function
   """
   def main do
-    num_users = 2
-    max_blocks = 2
+    num_users = 100
+    max_blocks = 10
     {:ok, agent_pid} = Neighbors.start_link(nil)
     {:ok, super_pid} = start_link(num_users - 1, max_blocks, agent_pid)
     
@@ -90,7 +90,10 @@ defmodule Bitcoin do
               :agent_pid => agent_pid,
               :all_UTXOs => %{},
               :parent => self(),
-              :max_blocks => max_blocks
+              :max_blocks => max_blocks,
+              :in_progress_block => %{},
+              :continue_mining => false,
+              :blockhash => []
             }]
           }
         }
