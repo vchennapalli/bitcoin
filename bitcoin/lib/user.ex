@@ -8,6 +8,11 @@ defmodule User do
   """
   use GenServer
 
+  @first_tx_after 1000
+  @create_second_block_after 2000
+  @block_mining_rate 1500 # one per 1.5 secs
+  @initiate_tx_range 100..600 # new tx initiated per a 0.1 to 0.6 secs
+
   @doc """
   first step
   """
@@ -19,21 +24,16 @@ defmodule User do
   initialize the process
   """
   def init(args) do
-    Process.send_after(self(), :initiate_transaction, 1000)
+    Process.send_after(self(), :initiate_transaction, @first_tx_after)
+    Process.send_after(self, :create_block, @create_second_block_after)
     {:ok, args}
   end
 
 
   def handle_info({:receive_transaction, transaction}, state) do
-    {new_state, possible_block, possible_height} = T.receive_transaction(state, transaction)
-    if possible_block != nil do
-      agent_pid = new_state[:agent_pid]
-      neighbors = new_state[:public_addresses]
-      IO.puts "Broadcasting a newly mined block . ."
-      broadcast_block(possible_block, possible_height, agent_pid, neighbors)
-    end
+    state = T.receive_transaction(state, transaction)
     # IO.inspect new_state
-    {:noreply, new_state}
+    {:noreply, state}
   end
 
   def handle_info({:receive_block, block, height}, state) do
@@ -43,7 +43,7 @@ defmodule User do
 
   def handle_info(:initiate_transaction, state) do
     # IO.inspect state
-    Process.send_after(self(), :initiate_transaction, Enum.random(100..600))
+    Process.send_after(self(), :initiate_transaction, Enum.random(@initiate_tx_range))
     {new_transaction, new_state} = T.initiate_transaction(state)
     if new_transaction != nil do
       # IO.inspect get_in(state, [:wallet, :public_address])
@@ -55,6 +55,33 @@ defmodule User do
 
     {:noreply, new_state}
   end
+
+  def handle_info(:create_block, state) do
+    bc_size = length(state[:blockchain])
+    max_blocks = state[:max_blocks]
+    mempool_size = state[:mempool] |> map_size()
+
+    new_state = 
+    cond do
+      bc_size == max_blocks ->
+        parent = state[:parent]
+        Process.send(parent, :close, [])
+        state
+      mempool_size >= 4 ->
+        {state, block, height} = B.create(state)
+        agent_pid = state[:agent_pid]
+        neighbors = state[:public_addresses]
+        IO.puts "Mined a new block, broadcasting it . ."
+        broadcast_block(block, height, agent_pid, neighbors)
+        Process.send_after(self(), :initiate_transaction, @block_mining_rate)
+        state
+      true ->
+        Process.send_after(self(), :initiate_transaction, @block_mining_rate)
+        state
+    end
+    {:noreply, new_state}
+  end
+
 
   def handle_info(:genesis, state) do
     {new_state, new_block, height} = B.create(state)

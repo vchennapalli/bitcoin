@@ -23,7 +23,7 @@ defmodule Block do
       }
     }
 
-    # @tpb 1 #transactions per block, including coinbase transaction
+    @tpb 1 #transactions per block, including coinbase transaction
 
     @doc """
     creates a block
@@ -45,8 +45,6 @@ defmodule Block do
         :transactions => transactions
       })
 
-      # IO.inspect transactions
-
       blockchain = Map.get(state, :blockchain)
       header = Map.get(block, :header)
 
@@ -58,7 +56,6 @@ defmodule Block do
           calculate_block_hash(last_block[:header])
         end
 
-      
       header = Map.merge(header, %{
         :merkle_root => merkle_root,
         :timestamp => DateTime.utc_now(),
@@ -86,7 +83,7 @@ defmodule Block do
     """
     def select_transactions(mempool, transactions, keys) do
         cond do
-            length(transactions) == 4 -> {transactions, keys}
+            length(transactions) == @tpb -> {transactions, keys}
             length(mempool) == 0 -> {transactions, keys}
             true ->
                 [{key, transaction} | mempool] = mempool
