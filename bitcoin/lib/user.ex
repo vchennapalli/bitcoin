@@ -1,22 +1,12 @@
 defmodule User do
   alias Block, as: B
   alias Transaction, as: T
-  alias Helper, as: H
+  # alias Helper, as: H
+
   @moduledoc """
-  contains the definitions and functions for wallet, blockchain handling, mining etc
+  contains the definitions and functions for wallet
   """
   use GenServer
-
-  # ASSUMPTIONS
-  # All nodes are full nodes -
-  # - keeps the whole blockchain
-  # - verifies all the rules of Bitcoin
-  # - keeps track of all UTXOs in the network
-  #
-  # TODO: Messeger Functions (for transactions and blocks)
-  # - handle_calls (synchronous)
-  #   - deliver_transaction (from originator to a random connected node in the bitcoin network)
-  #
 
   @doc """
   first step
@@ -29,72 +19,76 @@ defmodule User do
   initialize the process
   """
   def init(args) do
-    IO.inspect args
+    Process.send_after(self(), :initiate_transaction, 1000)
     {:ok, args}
   end
 
 
-  def handle_cast({tag, message}, state) do
-    new_state =
-    case tag do
-      :receive_transaction -> T.receive_transaction(message, state)
-      :receive_block -> receive_block(message, state)
-      :perform_transaction -> perform_transaction(message, state)
+  def handle_info({:receive_transaction, transaction}, state) do
+    {new_state, possible_block, possible_height} = T.receive_transaction(state, transaction)
+    if possible_block != nil do
+      agent_pid = new_state[:agent_pid]
+      neighbors = new_state[:public_addresses]
+      IO.puts "Broadcasting a newly mined block . ."
+      broadcast_block(possible_block, possible_height, agent_pid, neighbors)
     end
+    # IO.inspect new_state
+    {:noreply, new_state}
   end
 
-  def handle_info({:genesis}, state) do
-
+  def handle_info({:receive_block, block, height}, state) do
+    new_state = B.receive(state, block, height)
+    {:noreply, new_state}
   end
 
-
-  defp create_block(state) do
-    nil
-  end
-
-  defp receive_block(_message, _state) do
-    nil
-  end
-
-  defp perform_transaction(message, state) do
-    public_addresses = Map.get(state, :public_addresses)
-
-    destination = Enum.random(public_addresses)
-
-    UTXO = get_input(state)
-
-
-    # if UTXO !== nil
-
-
-
-  end
-
-
-  defp select_neighbor(state) do
-    num_users = Map.get(state, :num_users)
-
-  end
-
-
-  defp get_input(state) do
-    UTXOs = get_in(state, [:wallet, :UTXOs])
-    public_address = get_in(state, [:wallet, :public_address])
-    hashed_public_address = public_address |> Helper.hash(:sha256)
-    UTXO = lookup_utxos(UTXOs, hashed_public_address)
-  end
-
-  defp lookup_utxos([UTXO | UTXOs], hashed_public_address) do
-    script_val = Map.get(UTXO, :scriptPubKey)
-    if script_val == hashed_public_address do
-      UTXO
-    else
-      lookup_utxos(UTXOs, hashed_public_address)
+  def handle_info(:initiate_transaction, state) do
+    # IO.inspect state
+    Process.send_after(self(), :initiate_transaction, Enum.random(100..600))
+    {new_transaction, new_state} = T.initiate_transaction(state)
+    if new_transaction != nil do
+      # IO.inspect get_in(state, [:wallet, :public_address])
+      neighbors = Map.get(new_state, :public_addresses)
+      agent_pid = Map.get(new_state, :agent_pid)
+      broadcast_transaction(new_transaction, agent_pid, neighbors)
+      Process.send(self(), {:receive_transaction, new_transaction}, [])  
     end
+
+    {:noreply, new_state}
   end
 
-  defp lookup_utxos([], _) do
-    nil
+  def handle_info(:genesis, state) do
+    {new_state, new_block, height} = B.create(state)
+    neighbors = Map.get(state, :public_addresses)
+    agent_pid = Map.get(state, :agent_pid)
+    IO.puts "Broadcasting the genesis block . ."
+    broadcast_block(new_block, height, agent_pid, neighbors)
+    {:noreply, new_state}
+  end
+
+  @doc """
+  sends the transaction to all the neighbors in the network
+  """
+  def broadcast_transaction(transaction, agent_pid, [neighbor | neighbors]) do
+    neigh_pid = Neighbors.get(agent_pid, neighbor)
+    Process.send(neigh_pid, {:receive_transaction, transaction}, [])
+    broadcast_transaction(transaction, agent_pid, neighbors)
+  end
+
+  def broadcast_transaction(_, _, []) do
+    true
+  end
+
+  @doc """
+  sends the block to all the neighbors in the network
+  """
+  def broadcast_block(block, height, agent_pid, [neighbor | neighbors]) do
+    neigh_pid = Neighbors.get(agent_pid, neighbor)
+    Process.send(neigh_pid, {:receive_block, block, height}, [])
+    broadcast_block(block, height, agent_pid, neighbors)
+  end
+
+  def broadcast_block(_, _, _, []) do
+    true
   end
 
 end
