@@ -21,13 +21,15 @@ Akshay Rechintala - 4581 6988
   - Mining & Creation of Blockchains
 
 - Bonus Functionality
-  - Base58 and Base58Check Encoding Implementation
-  - UTXO Implementation
-  - Transaction Validation & Verification
-  - Merkle Root Calculation
-  - Block Validation
-  - Mempool Implementation
   - Inclusion of Transaction Fee for Miners
+  - Merkle Root Calculation
+  - UTXO Implementation
+  - Block Verification & Validation
+  - Transaction Validation & Verification
+  - Mempool Implementation
+  - Handling forking in small networks (incorporated in functional test)
+  - Base58 and Base58Check Encoding Implementation
+  
 
 
 # Test Case Specifications & Details
@@ -104,7 +106,9 @@ Akshay Rechintala - 4581 6988
 
 4. Functional Testing of Wallet, Transactions, Block Creation & Block Mining
   i. Two users are created. The first user mines the genesis block and gets 5000000000 satoshis. 
-  ii. He leaves 1% of the UTXO (5000000) for the miner and sends half of remaining amount to the second person. He sends the other half to himself. All this happens in the same transaction. 
-  iii. Following the verification and validation of the transaction, a new block is mined by the first user. As a reward, the first user will receive the transaction fee as well. 
-  iv. By the end of it, the blockchain will have two blocks. The first user will have 752500000 BC and the second user will have 247500000 satoshis.
+  ii. He leaves 2% of the UTXO (5000000) for the miner and sends half of remaining amount to the second person. He sends the other half to himself. All this happens in the same transaction. 
+  iii. Following that, the users make a few transactions between each other within random intervals of duration, while leaving transaction fee for the miner along the way.
+  iv. Once 4 or more transactions have been received within the network, new block is mined by one of the competing blocks. 
+  v. That block is sent to the neighbor, who verifies and validates it before accepting it to his blockchain.
+  iv. By the end of it, the blockchain will have two blocks, and a few unconfirmed transactions pending in the mempool.
     - Command: mix test test/tests.exs --only execute_bitcoin

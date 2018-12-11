@@ -9,7 +9,6 @@ defmodule Block do
     """
     @template %{
       :new_block => %{
-        # :size => nil,
         :header => %{
           :version => 1,
           :previous_block_hash => "0000000000000000000000000000000000000000000000000000000000000000",
@@ -29,7 +28,7 @@ defmodule Block do
     creates a block
     """
     def create(state) do
-      #NOTE: 1st transaction is reward + fees
+      # 1st transaction is reward + fees
       mempool = Map.get(state, :mempool)
       mempool_list = Map.to_list(mempool)
       {transactions, keys} = select_transactions(mempool_list, [], [])
@@ -84,7 +83,6 @@ defmodule Block do
       state = Map.put(state, :blockhash, blockhash)
 
       height = length(blockchain)
-      # IO.puts "A new block mined by #{my_address} at height #{height}"
       
       state = Map.put(state, :blockchain, blockchain)
       [coinbase_tx | _] = block[:transactions]
@@ -92,13 +90,14 @@ defmodule Block do
       coinbase_tx_hash = H.transaction_hash(coinbase_tx, :sha256)
       state = T.update_local_UTXOs(state, coinbase_tx_hash, coinbase_tx[:outputs])
 
+      IO.puts "Block mined by #{my_address}"
       {state, block, height}
 
     end
 
-@doc """
-creates a genesis block
-"""
+    @doc """
+    creates a genesis block
+    """
     def create_genesis_block(state) do
       mempool = Map.get(state, :mempool)
       mempool_list = Map.to_list(mempool)
@@ -134,7 +133,6 @@ creates a genesis block
 
       nonce = M.mine(header)
       my_address = get_in(state, [:wallet, :public_address])
-      # IO.puts "A new block mined by #{my_address}"
 
       header = Map.put(header, :nonce, nonce)
       block = Map.put(block, :header, header)
@@ -150,7 +148,7 @@ creates a genesis block
       state = T.update_global_UTXOs(state, coinbase_transaction)
       coinbase_tx_hash = H.transaction_hash(coinbase_transaction, :sha256)
       state = T.update_local_UTXOs(state, coinbase_tx_hash, coinbase_transaction[:outputs])
-      
+      # IO.puts "Genesis Block created"
       {state, block, height}
     end
 
@@ -187,15 +185,13 @@ creates a genesis block
     def receive(state, block, height) do
       blockchain = state[:blockchain]
       public_address = get_in(state, [:wallet, :public_address])
-      # IO.puts "A new block received by #{public_address}"
+
       cond do
         length(blockchain) < height and validate(block) ->
-          # IO.inspect "#{height}, #{length(blockchain)}, #{public_address}"
           mempool = Map.get(state, :mempool)
-          # IO.puts "Block received by #{public_address} at height #{height}"
-          # put back the unblocked transactions
-          # IO.inspect state
           in_progress_block = Map.get(state, :in_progress_block)
+
+          IO.puts "A valid block received by #{public_address}"
           
           mempool = 
             if map_size(in_progress_block) != 0 do
@@ -226,7 +222,6 @@ creates a genesis block
           blockhash = blockhash ++ [pbh]
           Map.put(state, :blockhash, blockhash)
 
-          
         length(blockchain) == height and validate(block) ->
           state
         true -> 
@@ -300,16 +295,5 @@ creates a genesis block
       nonce = header[:nonce]
       nonce == M.mine(header)
     end
-
-    #@doc """
-    #- checks if appropriate coinbase reward was included
-    #- checks if only one coinbase transaction is present
-    #- checks if the fees has been added properly
-    #"""
-    # def validate_coinbase(block) do
-    #   transactions = Map.get(block, :transactions)
-    #   [coinbase | rest] = transactions
-
-    # end
 
   end

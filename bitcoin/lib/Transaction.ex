@@ -57,7 +57,6 @@ defmodule Transaction do
   creates a transaction
   """
   def initiate_transaction(state) do
-    # IO.inspect state
     receiver_address = select_receiver(state)
     {my_UTXOs, state} = select_UTXOs(state)
     transaction = Map.get(@templates, :transaction)
@@ -78,7 +77,7 @@ defmodule Transaction do
       transaction = Map.put(transaction, :output_counter, length(outputs))
       transaction = Map.put(transaction, :inputs, inputs)
       transaction = Map.put(transaction, :outputs, outputs)
-      # IO.puts "Transaction of value #{value} initiated by #{my_address} - #{non_change} sent to #{receiver_address} - #{change} sent back to #{my_address} - #{transaction_fee} left for the miner"
+      IO.puts "Transaction of value #{value} initiated by #{my_address}. #{non_change} sent to #{receiver_address}. #{change} sent back to #{my_address}. #{transaction_fee} left for the miner"
       {transaction, state}
     else
       {nil, state}
@@ -144,7 +143,6 @@ defmodule Transaction do
   """
   def select_receiver(state) do
     public_addresses = Map.get(state, :public_addresses)
-    # IO.inspect public_addresses
     Enum.random(public_addresses)
   end
 
@@ -257,7 +255,6 @@ defmodule Transaction do
           :confirmations => 0
         })
         my_UTXOs = my_UTXOs ++ [new_UTXO]
-        # IO.inspect my_UTXOs
         put_in(state, [:wallet, :my_UTXOs], my_UTXOs)
       else
         state
@@ -272,7 +269,6 @@ defmodule Transaction do
   receives transaction sent by a user to anonymous user
   """
   def receive_transaction(state, transaction) do
-    # IO.inspect transaction
     if validate_transaction(transaction) do # TODO and verify_transaction(state, transaction) do
       trasaction_hash = H.transaction_hash(transaction, :sha256)
       mempool = Map.get(state, :mempool)
@@ -352,7 +348,7 @@ defmodule Transaction do
     all_UTXOs = Map.get(state, :all_UTXOs)
 
     validity = verify_all_UTXOs(all_UTXOs, inputs, true)
-    # IO.inspect verify_all_UTXOs(all_UTXOs, inputs, true)
+    
     if validity do
       total_input_value = get_tx_input_value(inputs, 0)
       outputs = Map.get(transaction, :outputs)
@@ -384,8 +380,6 @@ defmodule Transaction do
         false
       end
 
-      # IO.inspect validity
-
       verify_all_UTXOs(all_UTXOs, remaining_inputs, validity)
     end
   end
@@ -400,7 +394,6 @@ defmodule Transaction do
     public_address = public_key |> KG.generate_public_hash() |> KG.generate_public_address()
 
     if public_address != script_pub_key do
-      IO.inspect "HERE"
       false
     else
       :crypto.verify(:ecdsa, :sha256, message, signature, [public_key, :secp256k1])

@@ -291,7 +291,6 @@ defmodule BitcoinTest do
     total_reward = 500005000
     [output | _] = Map.get(transaction, :outputs)
     observed_reward = Map.get(output, :value)
-    IO.inspect observed_reward
     assert total_reward == observed_reward and T.validate_coinbase(transaction)
   end
 

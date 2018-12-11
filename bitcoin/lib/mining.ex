@@ -19,10 +19,6 @@ defmodule Mining do
     def generate_proof_of_work(v, pbh, mr, t, bits, n) do
         
         hash = "#{v}#{pbh}#{mr}#{t}#{n}" |> H.double_hash(:sha256) |> Base.encode16
-
-        # receive do
-        #     {:receive_transaction, new_transaction} ->
-        # end
         
         if(hash < bits) do
             n
@@ -33,8 +29,7 @@ defmodule Mining do
     end
 
     @doc """
-    checks if the pow is valid or not.
-    if not, increases the nonce and checks 
+    checks if the pow is valid or not. If not, increases the nonce and checks 
     pow of that in the next callback.
     """
     def check_proof_of_work(state) do

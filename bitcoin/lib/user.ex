@@ -33,7 +33,6 @@ defmodule User do
 
   def handle_info({:receive_transaction, transaction}, state) do
     state = T.receive_transaction(state, transaction)
-    # IO.inspect new_state
     {:noreply, state}
   end
 
@@ -60,15 +59,13 @@ defmodule User do
     bc_size = length(state[:blockchain])
     max_blocks = state[:max_blocks]
     mempool_size = state[:mempool] |> map_size()
-    # IO.puts "#{bc_size}, #{mempool_size}"
+
     cond do
       bc_size == max_blocks ->
-        # IO.inspect state[:blockhash]
         parent = state[:parent]
         Process.send(parent, :close, [])
         state
       mempool_size >= 4 ->
-        # IO.puts "HERE"
         state = B.create(state)
         Process.send(self(), :mine_block, [])
         state
@@ -109,6 +106,7 @@ defmodule User do
         agent_pid = Map.get(new_state, :agent_pid)
         neighbors = Map.get(new_state, :public_addresses)
         broadcast_block(block, height, agent_pid, neighbors)
+        IO.puts "Broadcasting the newly mined block"
         Process.send_after(self(), :create_block, @block_mining_rate)
         new_state
       else
